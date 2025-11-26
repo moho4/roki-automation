@@ -1,0 +1,41 @@
+{
+  "periods": {
+    "zimsko": { "start": "2026-01-19", "end": "2026-02-13" },
+    "poletno": { "start": "2026-06-01", "end": "2026-07-03" },
+    "jesensko": { "start": "2026-08-19", "end": "2026-09-15" }
+  },
+  "prazniki": [
+    "2026-02-08",
+    "2026-06-25"
+  ],
+  "konfliktne_skupine": {
+    "zimsko": [
+      ["Antična filozofija 1", "Logika in argumentacija", "Novoveška filozofija 1", "Politična filozofija"],
+      ["Srednjeveška in renesančna filozofija 1", "Filozofska antropologija", "Etika",
+       "Azijske filozofije", "Slovenska filozofija in filozofska terminologija",
+       "Marksizem in kritična teorija", "Filozofija in zgodovina znanosti"],
+      ["Srednjeveška in renesančna filozofija 1", "Filozofska antropologija",
+       "Strukturalizem, psihoanaliza, filozofija"],
+      ["Etika", "Moralna filozofija"],
+      ["Fenomenologija 1", "Praktična filozofija", "Nemška klasična filozofija E",
+       "Hermenevtika 2", "Filozofija narave", "Sodobna analitična filozofija", "Metafizika"],
+      ["Fenomenologija 1", "Nemška klasična filozofija D", "Filozofija zavesti in življenja"],
+      ["Praktična filozofija", "Filozofija in humanistika", "Filozofija religije"],
+      ["Kritična teorija družbe", "Didaktika filozofskih praks"],
+      ["Praktična etika", "Didaktika filozofije in etike"]
+    ],
+    "poletno": [
+      ["Estetika", "Antična filozofija 2", "Simbolna logika",
+       "Spoznavna teorija", "Novoveška filozofija 2", "Ontologija"],
+      ["Hermenevtika 1", "Osnove analitične filozofije", "Srednjeveška in renesančna filozofija 2",
+       "Uvod v psihoanalizo", "Filozofija duha"],
+      ["Hermenevtika 1", "Osnove analitične filozofije", "Filozofija zgodovine"],
+      ["Estetika", "Azijske filozofije, religije in kulture", "Socialna filozofija"],
+      ["Normativna etika in teorija delovanja", "Fenomenologija 2",
+       "Filozofija jezika", "Antropologija simbolnih form"],
+      ["Normativna etika in teorija delovanja", "Semiotika"],
+      ["Praktična filozofija med Kantom in Heglom", "Človek in kozmos v renesansi"]
+    ],
+    "jesensko": []
+  }
+}
