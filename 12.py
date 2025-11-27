@@ -1,6 +1,8 @@
 import os
+import sys
 import json
 import argparse
+import subprocess
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 
@@ -12,16 +14,24 @@ import shutil
 
 # pot do mape za poročila
 REPORT_DIR = "poročila"
-
-# ustvari mapo poročila, če ne obstaja
-if not os.path.exists(REPORT_DIR):
-    os.makedirs(REPORT_DIR)
-
-REPORT_DIR = "poročila"
 ARCHIVE_DIR = os.path.join(REPORT_DIR, "stara poročila in koledarji")
 
 os.makedirs(REPORT_DIR, exist_ok=True)
 os.makedirs(ARCHIVE_DIR, exist_ok=True)
+
+
+def try_open_file(path: str, label: str):
+    """Poskusi odpreti datoteko na več platformah brez izjem v primeru neuspeha."""
+    try:
+        if hasattr(os, "startfile"):
+            os.startfile(path)
+            return
+
+        # Linux / macOS
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.run([opener, path], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"{label} ni bilo mogoče samodejno odpreti:", e)
 
 def archive_old_files(prefix: str, keep_path: str):
     """
@@ -264,7 +274,35 @@ def predmet_groups_for_rok(rok: str, predmet: str):
     return groups
 
 
-def propose_dates_for_row(row, df_all: pd.DataFrame, top_n: int = 5):
+def build_proposal_context(df_all: pd.DataFrame):
+    """Pripravi predizračune za generiranje predlogov datumov."""
+    df_with_dates = df_all[df_all["Datum"].notna() & df_all["Rok"].notna()]
+
+    dates_by_predmet_rok = defaultdict(list)
+    rows_by_rok_date: dict[str, dict[date, list[dict]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+
+    for idx, row in df_with_dates.iterrows():
+        key = (row["Predmet"], row["Rok"])
+        dates_by_predmet_rok[key].append((idx, row["Datum"]))
+
+        rows_by_rok_date[row["Rok"]][row["Datum"]].append(
+            {
+                "Predmet": row["Predmet"],
+                "Prof": row["Prof"],
+                "Ura": row["Ura"],
+                "Predavalnica": row["Predavalnica"],
+            }
+        )
+
+    return {
+        "dates_by_predmet_rok": dates_by_predmet_rok,
+        "rows_by_rok_date": rows_by_rok_date,
+    }
+
+
+def propose_dates_for_row(row, context: dict, top_n: int = 5):
     """
     Za eno problematično vrstico predlaga do top_n novih datumov.
     Upošteva:
@@ -287,15 +325,14 @@ def propose_dates_for_row(row, df_all: pd.DataFrame, top_n: int = 5):
         return []
 
     # druge datume istega predmeta v ISTEM roku
-    mask_same_predmet = (
-        (df_all["Predmet"] == predmet)
-        & df_all["Datum"].notna()
-        & (df_all["Rok"] == rok)
-    )
-    other_dates = df_all[mask_same_predmet & (df_all.index != row.name)]["Datum"].tolist()
+    other_dates = [
+        d
+        for idx, d in context["dates_by_predmet_rok"].get((predmet, rok), [])
+        if idx != row.name
+    ]
 
-    # vsi drugi izpiti v istem roku
-    df_same_rok = df_all[(df_all["Rok"] == rok) & df_all["Datum"].notna()].copy()
+    # vsi drugi izpiti v istem roku (mapa rok -> datum -> list zapisov)
+    rok_to_dates = context["rows_by_rok_date"].get(rok, {})
 
     predmet_groups = predmet_groups_for_rok(rok, predmet)
 
@@ -326,9 +363,9 @@ def propose_dates_for_row(row, df_all: pd.DataFrame, top_n: int = 5):
 
         # prekrivanje obveznih – samo, če je predmet v kakšni skupini
         if predmet_groups:
-            df_same_day = df_same_rok[df_same_rok["Datum"] == current]
+            df_same_day = rok_to_dates.get(current, [])
             conflict_obv = False
-            for _, r2 in df_same_day.iterrows():
+            for r2 in df_same_day:
                 for grp in predmet_groups:
                     if r2["Predmet"] in grp:
                         conflict_obv = True
@@ -554,6 +591,7 @@ df_norm["is_problem"] = (
     | df_norm["is_prekrivanje"]
 )
 
+proposal_context = build_proposal_context(df_norm)
 proposal_rows = []
 
 for idx, row in df_norm[df_norm["is_problem"]].iterrows():
@@ -586,7 +624,7 @@ for idx, row in df_norm[df_norm["is_problem"]].iterrows():
         if others:
             detail_prekriv = "; ".join(others)
 
-    preds = propose_dates_for_row(row, df_norm, top_n=5)
+    preds = propose_dates_for_row(row, proposal_context, top_n=5)
 
     rec = {
         "Prof": row["Prof"],
@@ -902,9 +940,6 @@ def generiraj_koledar(df_norm: pd.DataFrame, problem_keys: set, out_name: str | 
     format_sheet(ws_leg, filter_only_col_A=False)
 
     # zapis datoteke
-    format_sheet(ws_leg, filter_only_col_A=False)
-
-    # zapis datoteke
     if out_name is not None:
         output_file = os.path.join(REPORT_DIR, out_name)
     else:
@@ -914,15 +949,9 @@ def generiraj_koledar(df_norm: pd.DataFrame, problem_keys: set, out_name: str | 
     # prestavi stare koledarje v arhiv
     archive_old_files("izpitni_koledar_OBVEZNI_auto", output_file)
 
-    # prestavi stare koledarje v arhiv
-    archive_old_files("izpitni_koledar_OBVEZNI_auto", output_file)
-
     wb.save(output_file)
     print(f"Izpitni koledar zapisan v: {output_file}")
-    try:
-        os.startfile(output_file)
-    except Exception as e:
-        print("Koledarja ni bilo mogoče samodejno odpreti:", e)
+    try_open_file(output_file, "Koledarja")
 
     return output_file
 
@@ -1042,10 +1071,7 @@ print(f"Poročilo zapisano v: {output_file}")
 
 
 # poskusi odpreti poročilo
-try:
-    os.startfile(output_file)
-except Exception as e:
-    print("Poročila ni bilo mogoče samodejno odpreti:", e)
+try_open_file(output_file, "Poročila")
 
 # =============================
 # 8. GENERIRAJ KOLEDAR
