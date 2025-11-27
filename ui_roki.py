@@ -42,6 +42,19 @@ def find_latest_input_excel():
     return None
 
 
+def try_open_path(path: str, label: str):
+    """Odpri datoteko ali mapo na različnih platformah brez izjeme ob napaki."""
+    try:
+        if hasattr(os, "startfile"):
+            os.startfile(path)
+            return
+
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.run([opener, path], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as exc:  # pylint: disable=broad-except
+        print(f"{label} ni bilo mogoče odpreti: {exc}")
+
+
 def run_analysis_auto(log_widget, run_button):
     base_dir = get_base_dir()
 
@@ -97,14 +110,8 @@ def run_analysis_auto(log_widget, run_button):
             log_widget.insert(tk.END, "\n\n✅ Analiza uspešno zaključena.\n")
             reports_dir = os.path.join(base_dir, REPORT_DIR)
             if os.path.isdir(reports_dir):
-                try:
-                    os.startfile(reports_dir)
-                    log_widget.insert(tk.END, f"Odprta mapa poročil: {reports_dir}\n")
-                except Exception as e:
-                    log_widget.insert(
-                        tk.END,
-                        f"Mape poročil ni bilo mogoče odpreti: {e}\n"
-                    )
+                try_open_path(reports_dir, "Mapa poročil")
+                log_widget.insert(tk.END, f"Odprta mapa poročil: {reports_dir}\n")
         else:
             log_widget.insert(
                 tk.END,
@@ -149,8 +156,8 @@ def main():
             messagebox.showwarning("Ni mape", "Mapa poročila še ne obstaja.")
             return
         try:
-            os.startfile(path)
-        except Exception as e:
+            try_open_path(path, "Mapa poročil")
+        except Exception as e:  # varnost, če subprocess/print vrže
             messagebox.showerror("Napaka", f"Mape poročil ni bilo mogoče odpreti: {e}")
 
     tk.Button(
